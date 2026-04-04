@@ -30,7 +30,7 @@ def _get_model():
     if not api_key:
         raise ValueError("GEMINI_API_KEY environment variable not set")
     genai.configure(api_key=api_key)
-    return genai.GenerativeModel("gemini-1.5-flash")
+    return genai.GenerativeModel("gemini-2.5-flash")
 
 
 SUMMARIZE_PROMPT = """You are an expert technical content summarizer. Analyze this transcript from a video about {technology} and extract structured information.

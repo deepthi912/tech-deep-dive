@@ -1,7 +1,16 @@
 youtube:
-  max_results_per_query: 10
+  max_results_per_query: 8
   prefer_captions: true
-  min_duration_minutes: 5
+  min_duration_minutes: 3
+  sources:
+    channels:
+      - "https://www.youtube.com/@EcZachly_"
+      - "https://www.youtube.com/@jordanhasnolife5163"
+      - "https://www.youtube.com/@Dremio"
+      - "https://www.youtube.com/@StarTree"
+    playlists:
+      - "PLfXiENmg6yyXKICQiUNutmDyJKk84BVSP"  # Data Engineering Open Forum 2025
+      - "PLkifVhhWtccxMcqWlXXFvjJybisFF7ESh"  # Iceberg Summit April 2025
 
 tts:
   voice: "en-US-GuyNeural"
