@@ -1,0 +1,18 @@
+youtube:
+  max_results_per_query: 10
+  prefer_captions: true
+  min_duration_minutes: 5
+
+tts:
+  voice: "en-US-GuyNeural"
+  rate: "+5%"
+  volume: "+0%"
+
+podcast:
+  target_duration_minutes: 60
+  output_dir: "./output"
+  show_name: "Tech Deep Dive"
+
+web:
+  host: "0.0.0.0"
+  port: 8555

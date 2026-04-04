@@ -1,0 +1,246 @@
+curriculum:
+  # --- Databases & Storage ---
+  - name: "PostgreSQL"
+    category: "Databases"
+    searches:
+      - "PostgreSQL architecture internals conference talk"
+      - "PostgreSQL tutorial beginners explained"
+      - "PostgreSQL use cases production"
+      - "PostgreSQL indexing performance tuning"
+      - "PostgreSQL vs MySQL comparison deep dive"
+
+  - name: "Apache Cassandra"
+    category: "Databases"
+    searches:
+      - "Apache Cassandra architecture internals"
+      - "Cassandra distributed database tutorial"
+      - "Cassandra use cases production at scale"
+      - "Cassandra data modeling best practices"
+
+  - name: "MongoDB"
+    category: "Databases"
+    searches:
+      - "MongoDB architecture internals"
+      - "MongoDB tutorial beginners"
+      - "MongoDB use cases production"
+      - "MongoDB vs PostgreSQL comparison"
+
+  # --- Big Data Processing ---
+  - name: "Apache Hadoop"
+    category: "Big Data"
+    searches:
+      - "Hadoop architecture HDFS MapReduce explained"
+      - "Hadoop ecosystem tutorial beginners"
+      - "Hadoop use cases enterprise"
+      - "Hadoop YARN architecture deep dive"
+      - "Hadoop conference talk"
+
+  - name: "Apache Spark"
+    category: "Big Data"
+    searches:
+      - "Apache Spark architecture internals deep dive"
+      - "Spark tutorial beginners to advanced"
+      - "Spark use cases production data engineering"
+      - "Spark SQL catalyst optimizer"
+      - "Spark conference talk"
+
+  - name: "Apache Flink"
+    category: "Stream Processing"
+    searches:
+      - "Apache Flink architecture deep dive"
+      - "Flink stream processing tutorial"
+      - "Flink stateful stream processing explained"
+      - "Flink vs Spark streaming comparison"
+      - "Flink real world use cases"
+
+  # --- Messaging & Streaming ---
+  - name: "Apache Kafka"
+    category: "Messaging"
+    searches:
+      - "Apache Kafka architecture internals"
+      - "Kafka tutorial beginners complete guide"
+      - "Kafka use cases event driven architecture"
+      - "Kafka streams explained"
+      - "Kafka conference talk"
+
+  - name: "Apache Pulsar"
+    category: "Messaging"
+    searches:
+      - "Apache Pulsar architecture"
+      - "Pulsar vs Kafka comparison"
+      - "Pulsar tutorial messaging"
+      - "Pulsar use cases"
+
+  # --- Search & Analytics ---
+  - name: "Elasticsearch"
+    category: "Search"
+    searches:
+      - "Elasticsearch architecture internals Lucene"
+      - "Elasticsearch tutorial beginners"
+      - "Elasticsearch use cases production"
+      - "Elasticsearch scaling performance"
+      - "ELK stack conference talk"
+
+  - name: "OpenSearch"
+    category: "Search"
+    searches:
+      - "OpenSearch architecture explained"
+      - "OpenSearch vs Elasticsearch comparison"
+      - "OpenSearch tutorial getting started"
+      - "OpenSearch use cases observability"
+
+  - name: "Apache Solr"
+    category: "Search"
+    searches:
+      - "Apache Solr architecture"
+      - "Solr tutorial search engine"
+      - "Solr vs Elasticsearch comparison"
+
+  - name: "ClickHouse"
+    category: "Analytics"
+    searches:
+      - "ClickHouse architecture internals column store"
+      - "ClickHouse tutorial OLAP analytics"
+      - "ClickHouse use cases real-time analytics"
+      - "ClickHouse conference talk performance"
+
+  - name: "DuckDB"
+    category: "Analytics"
+    searches:
+      - "DuckDB architecture internals embedded analytics"
+      - "DuckDB tutorial analytical queries"
+      - "DuckDB use cases data science"
+      - "DuckDB vs other databases comparison"
+
+  - name: "Apache Druid"
+    category: "Analytics"
+    searches:
+      - "Apache Druid architecture real-time OLAP"
+      - "Druid tutorial analytics"
+      - "Druid use cases"
+      - "Druid vs ClickHouse comparison"
+
+  # --- Query Engines & Table Formats ---
+  - name: "Apache DataFusion"
+    category: "Query Engine"
+    searches:
+      - "Apache DataFusion query engine architecture"
+      - "DataFusion Arrow integration tutorial"
+      - "DataFusion Rust query engine"
+
+  - name: "Apache Arrow"
+    category: "In-Memory Format"
+    searches:
+      - "Apache Arrow architecture columnar format"
+      - "Arrow in-memory analytics tutorial"
+      - "Arrow Flight data transfer"
+      - "Arrow conference talk"
+
+  - name: "Apache Iceberg"
+    category: "Table Format"
+    searches:
+      - "Apache Iceberg table format architecture"
+      - "Iceberg data lakehouse tutorial"
+      - "Iceberg vs Delta Lake vs Hudi comparison"
+      - "Iceberg conference talk Netflix"
+
+  - name: "Delta Lake"
+    category: "Table Format"
+    searches:
+      - "Delta Lake architecture internals"
+      - "Delta Lake tutorial data lakehouse"
+      - "Delta Lake use cases"
+      - "Delta Lake vs Iceberg comparison"
+
+  # --- Orchestration & Workflow ---
+  - name: "Apache Airflow"
+    category: "Orchestration"
+    searches:
+      - "Apache Airflow architecture scheduler"
+      - "Airflow tutorial DAGs workflows"
+      - "Airflow use cases data pipeline orchestration"
+      - "Airflow best practices production"
+
+  - name: "Apache NiFi"
+    category: "Data Flow"
+    searches:
+      - "Apache NiFi architecture data flow"
+      - "NiFi tutorial data integration"
+      - "NiFi use cases ETL"
+
+  # --- ML & AI ---
+  - name: "Apache Spark MLlib"
+    category: "Machine Learning"
+    searches:
+      - "Spark MLlib machine learning tutorial"
+      - "Spark ML pipeline architecture"
+      - "MLlib use cases production ML"
+      - "Spark distributed machine learning"
+
+  - name: "Apache TVM"
+    category: "ML Compiler"
+    searches:
+      - "Apache TVM deep learning compiler"
+      - "TVM architecture optimization"
+      - "TVM tutorial model deployment"
+
+  - name: "MLflow"
+    category: "ML Operations"
+    searches:
+      - "MLflow architecture ML lifecycle"
+      - "MLflow tutorial experiment tracking"
+      - "MLflow use cases production ML"
+      - "MLflow model registry deployment"
+
+  # --- Infrastructure ---
+  - name: "Kubernetes"
+    category: "Container Orchestration"
+    searches:
+      - "Kubernetes architecture internals deep dive"
+      - "Kubernetes tutorial beginners"
+      - "Kubernetes use cases production"
+      - "Kubernetes conference talk"
+
+  - name: "Apache Tomcat"
+    category: "Web Server"
+    searches:
+      - "Apache Tomcat architecture internals"
+      - "Tomcat tutorial Java web server"
+      - "Tomcat configuration performance tuning"
+
+  - name: "Apache Camel"
+    category: "Integration"
+    searches:
+      - "Apache Camel integration patterns"
+      - "Camel tutorial enterprise integration"
+      - "Camel use cases microservices"
+
+  - name: "Redis"
+    category: "In-Memory Store"
+    searches:
+      - "Redis architecture internals deep dive"
+      - "Redis tutorial data structures"
+      - "Redis use cases caching sessions"
+      - "Redis conference talk"
+
+  - name: "Apache ZooKeeper"
+    category: "Coordination"
+    searches:
+      - "ZooKeeper architecture distributed coordination"
+      - "ZooKeeper tutorial"
+      - "ZooKeeper use cases distributed systems"
+
+  - name: "etcd"
+    category: "Coordination"
+    searches:
+      - "etcd architecture distributed key value"
+      - "etcd tutorial Kubernetes"
+      - "etcd vs ZooKeeper comparison"
+
+  - name: "Prometheus"
+    category: "Monitoring"
+    searches:
+      - "Prometheus architecture monitoring"
+      - "Prometheus tutorial metrics alerting"
+      - "Prometheus Grafana use cases"
+      - "Prometheus conference talk"

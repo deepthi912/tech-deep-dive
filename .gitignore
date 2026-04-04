@@ -1,0 +1,7 @@
+.env
+output/*.mp3
+data/progress.json
+data/episode_log.json
+__pycache__/
+*.pyc
+.venv/
