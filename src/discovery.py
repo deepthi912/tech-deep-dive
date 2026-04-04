@@ -1,4 +1,9 @@
-"""YouTube content discovery: finds the best videos for a given technology topic."""
+"""YouTube content discovery: finds the best videos for a given technology topic.
+
+Quota budget: each search costs 100 units, each video detail costs ~3 units.
+Daily free quota is 10,000 units. We cap at 5 searches + 1 detail call = ~550 units,
+leaving >9,000 units unused as a safety margin.
+"""
 
 import logging
 import os
@@ -7,6 +12,13 @@ from dataclasses import dataclass
 from googleapiclient.discovery import build
 
 logger = logging.getLogger(__name__)
+
+MAX_SEARCH_QUERIES = 5
+MAX_RESULTS_PER_QUERY = 8
+QUOTA_PER_SEARCH = 100
+QUOTA_PER_DETAIL = 3
+DAILY_QUOTA_LIMIT = 10_000
+SAFETY_QUOTA_CAP = 1_000
 
 
 @dataclass
@@ -40,18 +52,25 @@ def _parse_duration_to_minutes(duration: str) -> int:
 
 def search_videos(
     searches: list[str],
-    max_results_per_query: int = 10,
+    max_results_per_query: int = MAX_RESULTS_PER_QUERY,
     min_duration_minutes: int = 5,
 ) -> list[VideoInfo]:
     """
     Search YouTube for videos matching the given queries.
-    Returns deduplicated, ranked videos sorted by relevance and views.
+    Enforces quota caps to stay well within the free 10,000 units/day limit.
     """
     youtube = _get_youtube_client()
     seen_ids: set[str] = set()
     candidates: list[VideoInfo] = []
+    quota_used = 0
 
-    for query in searches:
+    capped_searches = searches[:MAX_SEARCH_QUERIES]
+
+    for query in capped_searches:
+        if quota_used + QUOTA_PER_SEARCH > SAFETY_QUOTA_CAP:
+            logger.info(f"Quota safety cap reached ({quota_used} units used), stopping searches")
+            break
+
         logger.info(f"Searching YouTube: '{query}'")
         try:
             search_resp = youtube.search().list(
@@ -63,6 +82,7 @@ def search_videos(
                 videoCaption="closedCaption",
                 relevanceLanguage="en",
             ).execute()
+            quota_used += QUOTA_PER_SEARCH
         except Exception as e:
             logger.warning(f"Search failed for '{query}': {e}")
             continue
@@ -83,6 +103,7 @@ def search_videos(
             part="contentDetails,statistics",
             id=",".join(video_ids),
         ).execute()
+        quota_used += QUOTA_PER_DETAIL
 
         for detail in details_resp.get("items", []):
             vid = detail["id"]
@@ -107,7 +128,10 @@ def search_videos(
 
     candidates.sort(key=lambda v: v.view_count, reverse=True)
     selected = candidates[:12]
-    logger.info(f"Found {len(candidates)} candidates, selected top {len(selected)}")
+    logger.info(
+        f"Found {len(candidates)} candidates, selected top {len(selected)}. "
+        f"Quota used: ~{quota_used}/{DAILY_QUOTA_LIMIT} units"
+    )
     return selected
 
 
