@@ -30,9 +30,77 @@ const closeSummary = document.getElementById("closeSummary");
 const summaryContent = document.getElementById("summaryContent");
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2];
+const HISTORY_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 1 week
+const SAVE_INTERVAL_MS = 3000;
 let speedIndex = 1;
 let currentEpisode = null;
 let pollInterval = null;
+let saveProgressTimer = null;
+
+// ── localStorage helpers (7-day TTL) ──
+
+function historyGet(key) {
+  try {
+    const raw = localStorage.getItem(`tdp_${key}`);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (obj._expires && Date.now() > obj._expires) {
+      localStorage.removeItem(`tdp_${key}`);
+      return null;
+    }
+    return obj.value;
+  } catch { return null; }
+}
+
+function historySet(key, value) {
+  try {
+    localStorage.setItem(`tdp_${key}`, JSON.stringify({
+      value,
+      _expires: Date.now() + HISTORY_TTL_MS,
+    }));
+  } catch { /* quota exceeded, ignore */ }
+}
+
+function getProgress(filename) {
+  const all = historyGet("progress") || {};
+  return all[filename] || null;
+}
+
+function saveProgress(filename, currentTime, duration) {
+  const all = historyGet("progress") || {};
+  all[filename] = { t: currentTime, d: duration, at: Date.now() };
+  historySet("progress", all);
+}
+
+function markListened(filename) {
+  const list = historyGet("listened") || [];
+  if (!list.includes(filename)) {
+    list.push(filename);
+    historySet("listened", list);
+  }
+}
+
+function isListened(filename) {
+  return (historyGet("listened") || []).includes(filename);
+}
+
+function cacheEpisodes(episodes) {
+  historySet("episodes_cache", episodes);
+}
+
+function getCachedEpisodes() {
+  return historyGet("episodes_cache") || [];
+}
+
+function saveLastPlaying(ep) {
+  historySet("last_playing", { filename: ep.filename, technology: ep.technology, day_number: ep.day_number });
+}
+
+function getLastPlaying() {
+  return historyGet("last_playing");
+}
+
+// ── Formatting ──
 
 function formatTime(s) {
   if (!s || isNaN(s)) return "0:00";
@@ -43,10 +111,19 @@ function formatTime(s) {
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
+function progressPercent(filename) {
+  const p = getProgress(filename);
+  if (!p || !p.d) return 0;
+  return Math.round((p.t / p.d) * 100);
+}
+
+// ── Player ──
+
 function playEpisode(ep) {
   currentEpisode = ep;
+  saveLastPlaying(ep);
   nowPlaying.classList.remove("hidden");
-  playerTitle.textContent = `${ep.technology}`;
+  playerTitle.textContent = ep.technology;
   playerCategory.textContent = `Episode ${ep.day_number}`;
   artDay.textContent = `Episode ${ep.day_number}`;
   artTech.textContent = ep.technology;
@@ -58,12 +135,25 @@ function playEpisode(ep) {
 
   audio.src = `/audio/${ep.filename}`;
   audio.load();
+
+  const saved = getProgress(ep.filename);
+  if (saved && saved.t > 5) {
+    audio.currentTime = saved.t;
+  }
+
   const playPromise = audio.play();
   if (playPromise !== undefined) {
     playPromise.catch((err) => {
       console.warn("Auto-play blocked, tap play to start:", err.message);
     });
   }
+
+  if (saveProgressTimer) clearInterval(saveProgressTimer);
+  saveProgressTimer = setInterval(() => {
+    if (currentEpisode && audio.duration && !audio.paused) {
+      saveProgress(currentEpisode.filename, audio.currentTime, audio.duration);
+    }
+  }, SAVE_INTERVAL_MS);
 
   if ("mediaSession" in navigator) {
     navigator.mediaSession.metadata = new MediaMetadata({
@@ -86,11 +176,28 @@ audio.addEventListener("error", () => {
   statusText.textContent = `Audio error: ${msg}. Try downloading the file instead.`;
 });
 
+audio.addEventListener("ended", () => {
+  if (currentEpisode) {
+    markListened(currentEpisode.filename);
+    saveProgress(currentEpisode.filename, audio.duration, audio.duration);
+    renderEpisodeList(getCachedEpisodes());
+  }
+});
+
+audio.addEventListener("pause", () => {
+  playIcon.classList.remove("hidden");
+  pauseIcon.classList.add("hidden");
+  equalizer.classList.remove("playing");
+  if (currentEpisode && audio.duration) {
+    saveProgress(currentEpisode.filename, audio.currentTime, audio.duration);
+  }
+});
+
 function showSummaries(ep) {
   if (!ep.summaries || !ep.summaries.length) {
     summaryContent.innerHTML = '<p class="empty-state">No summaries available for this episode.</p>';
   } else {
-    summaryContent.innerHTML = ep.summaries.map((s, i) => `
+    summaryContent.innerHTML = ep.summaries.map((s) => `
       <div class="summary-card">
         <div class="summary-header">
           <h3>${s.title}</h3>
@@ -120,7 +227,6 @@ function showSummaries(ep) {
 // Player controls
 playPauseBtn.addEventListener("click", () => { if (!audio.src) return; if (audio.paused) audio.play(); else audio.pause(); });
 audio.addEventListener("play", () => { playIcon.classList.add("hidden"); pauseIcon.classList.remove("hidden"); equalizer.classList.add("playing"); });
-audio.addEventListener("pause", () => { playIcon.classList.remove("hidden"); pauseIcon.classList.add("hidden"); equalizer.classList.remove("playing"); });
 audio.addEventListener("timeupdate", () => { if (!audio.duration) return; seekBar.value = (audio.currentTime / audio.duration) * 100; currentTimeEl.textContent = formatTime(audio.currentTime); });
 audio.addEventListener("loadedmetadata", () => { durationEl.textContent = formatTime(audio.duration); });
 seekBar.addEventListener("input", () => { if (audio.duration) audio.currentTime = (seekBar.value / 100) * audio.duration; });
@@ -190,7 +296,55 @@ generateFromQueue.addEventListener("click", async () => {
   } catch (err) { console.error(err); }
 });
 
-// Episodes
+// ── Episode rendering with progress ──
+
+function renderEpisodeList(episodes) {
+  if (!episodes.length) {
+    episodeList.innerHTML = '<div class="empty-state"><p>No episodes yet. Add blog/doc URLs above and click "Generate Podcast".</p></div>';
+    return;
+  }
+  episodeList.innerHTML = episodes.map((ep) => {
+    const isActive = currentEpisode && currentEpisode.filename === ep.filename;
+    const pct = progressPercent(ep.filename);
+    const listened = isListened(ep.filename);
+    const progressLabel = listened ? "Listened" : pct > 0 ? `${pct}% played` : "";
+
+    return `
+    <div class="episode-item ${isActive ? "active" : ""} ${listened ? "listened" : ""}" data-filename="${ep.filename}">
+      <div class="episode-number" onclick='playEpisode(${JSON.stringify(ep).replace(/'/g, "&#39;")})'>${ep.day_number}</div>
+      <div class="episode-info" onclick='playEpisode(${JSON.stringify(ep).replace(/'/g, "&#39;")})'>
+        <h3>${ep.technology}</h3>
+        <div class="episode-meta">
+          <span>${ep.date}</span><span class="dot"></span>
+          <span>${ep.sources_used || ep.videos_used || 0} sources</span>
+          ${progressLabel ? `<span class="dot"></span><span class="progress-label ${listened ? "done" : ""}">${progressLabel}</span>` : ""}
+        </div>
+        ${pct > 0 && !listened ? `<div class="episode-progress-bar"><div class="episode-progress-fill" style="width:${pct}%"></div></div>` : ""}
+      </div>
+      <button class="summary-btn" onclick='showSummaries(${JSON.stringify(ep).replace(/'/g, "&#39;")})' title="View Summaries">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+      </button>
+      <a class="download-btn" href="/download/${ep.filename}" title="Download" onclick="event.stopPropagation()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+      </a>
+      <div class="episode-play-icon" onclick='playEpisode(${JSON.stringify(ep).replace(/'/g, "&#39;")})'>
+        <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+// ── Load episodes (merge server + cache) ──
+
 async function loadEpisodes() {
   try {
     const resp = await fetch("/api/episodes");
@@ -209,45 +363,28 @@ async function loadEpisodes() {
       if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
       generateFromQueue.disabled = false; loadQueue();
     }
-    const episodes = data.episodes || [];
-    if (!episodes.length) {
-      episodeList.innerHTML = '<div class="empty-state"><p>No episodes yet. Add blog/doc URLs above and click "Generate Podcast".</p></div>';
-      return;
+
+    const serverEps = data.episodes || [];
+    const cached = getCachedEpisodes();
+
+    // Merge: server episodes take priority, add cached ones not on server (from before a restart)
+    const serverFiles = new Set(serverEps.map(e => e.filename));
+    const merged = [...serverEps];
+    for (const ce of cached) {
+      if (!serverFiles.has(ce.filename)) {
+        ce._cached = true;
+        merged.push(ce);
+      }
     }
-    episodeList.innerHTML = episodes.map((ep) => {
-      const isActive = currentEpisode && currentEpisode.filename === ep.filename;
-      return `
-      <div class="episode-item ${isActive ? "active" : ""}" data-filename="${ep.filename}">
-        <div class="episode-number" onclick='playEpisode(${JSON.stringify(ep).replace(/'/g, "&#39;")})'>${ep.day_number}</div>
-        <div class="episode-info" onclick='playEpisode(${JSON.stringify(ep).replace(/'/g, "&#39;")})'>
-          <h3>${ep.technology}</h3>
-          <div class="episode-meta">
-            <span>${ep.date}</span><span class="dot"></span>
-            <span>${ep.sources_used || ep.videos_used || 0} sources</span>
-          </div>
-        </div>
-        <button class="summary-btn" onclick='showSummaries(${JSON.stringify(ep).replace(/'/g, "&#39;")})' title="View Summaries">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="16" y1="13" x2="8" y2="13"/>
-            <line x1="16" y1="17" x2="8" y2="17"/>
-          </svg>
-        </button>
-        <a class="download-btn" href="/download/${ep.filename}" title="Download" onclick="event.stopPropagation()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="7 10 12 15 17 10"/>
-            <line x1="12" y1="15" x2="12" y2="3"/>
-          </svg>
-        </a>
-        <div class="episode-play-icon" onclick='playEpisode(${JSON.stringify(ep).replace(/'/g, "&#39;")})'>
-          <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        </div>
-      </div>`;
-    }).join("");
-  } catch (err) {
-    episodeList.innerHTML = '<div class="empty-state"><p>Could not load episodes.</p></div>';
+    cacheEpisodes(merged);
+    renderEpisodeList(merged);
+  } catch {
+    const cached = getCachedEpisodes();
+    if (cached.length) {
+      renderEpisodeList(cached);
+    } else {
+      episodeList.innerHTML = '<div class="empty-state"><p>Could not load episodes.</p></div>';
+    }
   }
 }
 
@@ -258,11 +395,33 @@ async function loadQueue() {
   } catch (err) { console.error(err); }
 }
 
+// ── Restore last session ──
+
+function restoreSession() {
+  const last = getLastPlaying();
+  if (!last) return;
+  const episodes = getCachedEpisodes();
+  const ep = episodes.find(e => e.filename === last.filename);
+  if (ep) {
+    currentEpisode = ep;
+    nowPlaying.classList.remove("hidden");
+    playerTitle.textContent = ep.technology;
+    playerCategory.textContent = `Episode ${ep.day_number}`;
+    artDay.textContent = `Episode ${ep.day_number}`;
+    artTech.textContent = ep.technology;
+    audio.src = `/audio/${ep.filename}`;
+    audio.load();
+    const saved = getProgress(ep.filename);
+    if (saved && saved.t > 5) audio.currentTime = saved.t;
+    // Don't auto-play on restore, just show the player
+  }
+}
+
 // Summary modal
 closeSummary.addEventListener("click", () => { summaryModal.classList.add("hidden"); });
 summaryModal.addEventListener("click", (e) => { if (e.target === summaryModal) summaryModal.classList.add("hidden"); });
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
 
-loadEpisodes();
+loadEpisodes().then(() => restoreSession());
 loadQueue();

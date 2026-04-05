@@ -472,6 +472,35 @@ header {
     background: var(--text-muted);
 }
 
+.episode-item.listened .episode-number {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.1));
+    color: var(--success);
+}
+
+.progress-label {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+}
+
+.progress-label.done {
+    color: var(--success);
+}
+
+.episode-progress-bar {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 0.4rem;
+    overflow: hidden;
+}
+
+.episode-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
 .episode-play-icon {
     width: 36px;
     height: 36px;
