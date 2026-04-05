@@ -45,8 +45,6 @@ function formatTime(s) {
 
 function playEpisode(ep) {
   currentEpisode = ep;
-  audio.src = `/audio/${ep.filename}`;
-  audio.play();
   nowPlaying.classList.remove("hidden");
   playerTitle.textContent = `${ep.technology}`;
   playerCategory.textContent = `Episode ${ep.day_number}`;
@@ -57,6 +55,16 @@ function playEpisode(ep) {
   document.querySelectorAll(".episode-item").forEach((el) => {
     el.classList.toggle("active", el.dataset.filename === ep.filename);
   });
+
+  audio.src = `/audio/${ep.filename}`;
+  audio.load();
+  const playPromise = audio.play();
+  if (playPromise !== undefined) {
+    playPromise.catch((err) => {
+      console.warn("Auto-play blocked, tap play to start:", err.message);
+    });
+  }
+
   if ("mediaSession" in navigator) {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: ep.technology, artist: "Tech Deep Dive", album: `Episode ${ep.day_number}`,
@@ -67,6 +75,16 @@ function playEpisode(ep) {
     navigator.mediaSession.setActionHandler("seekforward", () => { audio.currentTime += 30; });
   }
 }
+
+audio.addEventListener("error", () => {
+  const err = audio.error;
+  const codes = { 1: "Aborted", 2: "Network error", 3: "Decode error", 4: "Source not supported" };
+  const msg = codes[err?.code] || "Unknown audio error";
+  console.error("Audio error:", msg, err);
+  statusBanner.classList.remove("hidden");
+  statusBanner.classList.add("error");
+  statusText.textContent = `Audio error: ${msg}. Try downloading the file instead.`;
+});
 
 function showSummaries(ep) {
   if (!ep.summaries || !ep.summaries.length) {
@@ -216,6 +234,13 @@ async function loadEpisodes() {
             <line x1="16" y1="17" x2="8" y2="17"/>
           </svg>
         </button>
+        <a class="download-btn" href="/download/${ep.filename}" title="Download" onclick="event.stopPropagation()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </a>
         <div class="episode-play-icon" onclick='playEpisode(${JSON.stringify(ep).replace(/'/g, "&#39;")})'>
           <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>

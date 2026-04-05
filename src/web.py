@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .main import generate_from_urls, get_all_episodes
@@ -115,14 +115,61 @@ async def api_generate(request: Request):
 
 
 @app.get("/audio/{filename}")
-async def serve_audio(filename: str):
+async def serve_audio(filename: str, request: Request):
     audio_path = get_output_dir() / filename
     if not audio_path.exists():
-        return {"error": "Episode not found"}, 404
+        return Response(content='{"error":"not found"}', status_code=404,
+                        media_type="application/json")
+
+    file_size = audio_path.stat().st_size
+    range_header = request.headers.get("range")
+
+    if range_header:
+        range_spec = range_header.replace("bytes=", "")
+        parts = range_spec.split("-")
+        start = int(parts[0]) if parts[0] else 0
+        end = int(parts[1]) if parts[1] else file_size - 1
+        end = min(end, file_size - 1)
+        length = end - start + 1
+
+        with open(audio_path, "rb") as f:
+            f.seek(start)
+            data = f.read(length)
+
+        return Response(
+            content=data,
+            status_code=206,
+            media_type="audio/mpeg",
+            headers={
+                "Content-Range": f"bytes {start}-{end}/{file_size}",
+                "Accept-Ranges": "bytes",
+                "Content-Length": str(length),
+                "Cache-Control": "public, max-age=86400",
+            },
+        )
+
     return FileResponse(
         str(audio_path),
         media_type="audio/mpeg",
-        headers={"Accept-Ranges": "bytes"},
+        headers={
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(file_size),
+            "Cache-Control": "public, max-age=86400",
+        },
+    )
+
+
+@app.get("/download/{filename}")
+async def download_audio(filename: str):
+    audio_path = get_output_dir() / filename
+    if not audio_path.exists():
+        return Response(content='{"error":"not found"}', status_code=404,
+                        media_type="application/json")
+    return FileResponse(
+        str(audio_path),
+        media_type="audio/mpeg",
+        filename=filename,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

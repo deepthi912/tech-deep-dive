@@ -758,6 +758,27 @@ header {
     background: rgba(239, 68, 68, 0.1);
 }
 
+/* Download button on episodes */
+.download-btn {
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: rgba(34, 197, 94, 0.1);
+    color: var(--success);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    text-decoration: none;
+}
+
+.download-btn:hover {
+    background: rgba(34, 197, 94, 0.2);
+}
+
 /* Summary button on episodes */
 .summary-btn {
     width: 36px;

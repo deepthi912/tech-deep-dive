@@ -31,23 +31,32 @@ Here are summaries from blog posts, documentation, and technical articles about 
 
 {summaries_json}
 
-Write a podcast script (~2500 words total, about 15-18 minutes when spoken). Write every word the narrator should speak -- no stage directions, no brackets, no notes. Just the spoken words.
+Write a podcast script (~4500 words total, about 28-32 minutes when spoken). Write every word the narrator should speak -- no stage directions, no brackets, no notes. Just the spoken words.
 
 SEGMENTS:
 
-1. INTRO (target: ~200 words)
+1. INTRO (target: ~300 words)
 - Welcome listeners to Tech Deep Dive
 - Introduce today's topic: {technology}
-- Quick teaser of what they'll learn
+- Brief teaser of what they'll learn
 
-2. DEEP_DIVE (target: ~1800 words)
-- What is {technology} and why it matters
-- Key architecture and design decisions
-- How it works under the hood
-- Real-world use cases and who uses it
-- Strengths and trade-offs vs alternatives
+2. FUNDAMENTALS (target: ~1200 words)
+- What is {technology} and why it was created
+- Core concepts and terminology
+- Where it fits in the technology landscape
 
-3. OUTRO (target: ~500 words)
+3. ARCHITECTURE (target: ~1500 words)
+- Internal architecture and key components
+- How data flows through the system
+- Design decisions and trade-offs
+- Use vivid mental models: "Imagine a system where..."
+
+4. USE_CASES (target: ~1000 words)
+- Real-world production use cases
+- Who uses it and why
+- When to choose it vs alternatives
+
+5. OUTRO (target: ~500 words)
 - Recap the top 5 takeaways
 - Sign off
 
@@ -63,7 +72,9 @@ Respond with a JSON object:
 {{
   "segments": [
     {{"name": "INTRO", "text": "the full spoken text..."}},
-    {{"name": "DEEP_DIVE", "text": "the full spoken text..."}},
+    {{"name": "FUNDAMENTALS", "text": "the full spoken text..."}},
+    {{"name": "ARCHITECTURE", "text": "the full spoken text..."}},
+    {{"name": "USE_CASES", "text": "the full spoken text..."}},
     {{"name": "OUTRO", "text": "the full spoken text..."}}
   ]
 }}
@@ -71,8 +82,10 @@ Respond with a JSON object:
 Return ONLY valid JSON. Write every word to be spoken aloud."""
 
 SEGMENT_TARGETS = {
-    "INTRO": 1,
-    "DEEP_DIVE": 12,
+    "INTRO": 2,
+    "FUNDAMENTALS": 8,
+    "ARCHITECTURE": 10,
+    "USE_CASES": 7,
     "OUTRO": 3,
 }
 
@@ -107,7 +120,7 @@ def generate_script(
     )
 
     logger.info(f"Generating podcast script for {technology}...")
-    text = generate_content(prompt, max_output_tokens=8000, temperature=0.7)
+    text = generate_content(prompt, max_output_tokens=16000, temperature=0.7)
     if text.startswith("```"):
         text = text.split("\n", 1)[1]
         text = text.rsplit("```", 1)[0]
