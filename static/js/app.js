@@ -421,9 +421,20 @@ async function loadEpisodes() {
       if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
       generateFromQueue.disabled = false;
     } else {
-      statusBanner.classList.add("hidden");
       if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
       generateFromQueue.disabled = false; loadQueue();
+
+      const prevCount = getCachedEpisodes().length;
+      const newCount = (data.episodes || []).length;
+      if (newCount > prevCount && newCount > 0) {
+        statusBanner.classList.remove("hidden", "error");
+        statusBanner.classList.add("success");
+        const latest = data.episodes[data.episodes.length - 1];
+        statusText.innerHTML = `Episode ready! <a href="/download/${latest.filename}" class="download-prompt">Download to keep a permanent copy</a>`;
+        setTimeout(() => statusBanner.classList.add("hidden"), 30000);
+      } else {
+        statusBanner.classList.add("hidden");
+      }
     }
 
     const serverEps = data.episodes || [];
