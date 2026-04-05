@@ -2,11 +2,9 @@
 
 import json
 import logging
-import os
 from dataclasses import dataclass
 
-import google.generativeai as genai
-
+from .gemini import generate_content
 from .summarizer import ArticleSummary
 
 logger = logging.getLogger(__name__)
@@ -124,13 +122,7 @@ def generate_script(
     category: str,
     next_topic: str = "another exciting technology",
 ) -> PodcastScript:
-    """Generate a full podcast episode script from video summaries."""
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        raise ValueError("GEMINI_API_KEY environment variable not set")
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-2.5-flash")
-
+    """Generate a full podcast episode script from article summaries."""
     summaries_json = _summaries_to_json(summaries)
     prompt = SCRIPT_PROMPT.format(
         technology=technology,
@@ -140,15 +132,7 @@ def generate_script(
     )
 
     logger.info(f"Generating podcast script for {technology}...")
-    response = model.generate_content(
-        prompt,
-        generation_config=genai.GenerationConfig(
-            max_output_tokens=30000,
-            temperature=0.7,
-        ),
-    )
-
-    text = response.text.strip()
+    text = generate_content(prompt, max_output_tokens=30000, temperature=0.7)
     if text.startswith("```"):
         text = text.split("\n", 1)[1]
         text = text.rsplit("```", 1)[0]

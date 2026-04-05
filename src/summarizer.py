@@ -6,11 +6,9 @@ Combined with 1 call in script_writer = 2 total per episode.
 
 import json
 import logging
-import os
 from dataclasses import dataclass
 
-import google.generativeai as genai
-
+from .gemini import generate_content
 from .scraper import ScrapedPage
 from .utils import truncate_text
 
@@ -26,14 +24,6 @@ class ArticleSummary:
     key_points: list[str]
     architecture_details: str
     use_cases: list[str]
-
-
-def _get_model():
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        raise ValueError("GEMINI_API_KEY environment variable not set")
-    genai.configure(api_key=api_key)
-    return genai.GenerativeModel("gemini-2.5-flash")
 
 
 BATCH_PROMPT = """You are an expert technical content summarizer. Below are articles/docs about {topic}. Analyze ALL of them and return a JSON array of summaries.
@@ -60,8 +50,6 @@ def summarize_pages(
     """Summarize ALL scraped pages in a single Gemini API call."""
     if not pages:
         return []
-
-    model = _get_model()
 
     chars_budget = 90000
     article_blocks = []
@@ -93,14 +81,7 @@ def summarize_pages(
     )
 
     try:
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.GenerationConfig(
-                max_output_tokens=16000,
-                temperature=0.3,
-            ),
-        )
-        text = response.text.strip()
+        text = generate_content(prompt, max_output_tokens=16000, temperature=0.3)
         if text.startswith("```"):
             text = text.split("\n", 1)[1]
             text = text.rsplit("```", 1)[0]
