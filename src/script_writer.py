@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 import google.generativeai as genai
 
-from .summarizer import VideoSummary
+from .summarizer import ArticleSummary
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class PodcastScript:
 
 SCRIPT_PROMPT = """You are a professional podcast script writer for "Tech Deep Dive", a daily technology learning podcast. Write a complete, engaging podcast script for today's episode about {technology}.
 
-Here are summaries from the best conference talks, tutorials, and deep dives about {technology}:
+Here are summaries from blog posts, documentation, and technical articles about {technology}:
 
 {summaries_json}
 
@@ -75,7 +75,7 @@ SEGMENTS:
 STYLE GUIDELINES:
 - Conversational but informative, like explaining to a smart friend
 - Use analogies to make complex concepts accessible
-- Reference sources naturally: "As discussed in a talk by [channel]..."
+- Reference sources naturally: "According to the documentation..." or "As explained in [source]..."
 - Avoid filler phrases. Every sentence should teach something.
 - Use transitional phrases between ideas
 - Make architecture explanations vivid with mental models
@@ -104,13 +104,12 @@ SEGMENT_TARGETS = {
 }
 
 
-def _summaries_to_json(summaries: list[VideoSummary]) -> str:
+def _summaries_to_json(summaries: list[ArticleSummary]) -> str:
     data = []
     for s in summaries:
         data.append({
             "title": s.title,
-            "channel": s.channel,
-            "category": s.category,
+            "source": s.url,
             "summary": s.summary,
             "key_points": s.key_points,
             "architecture_details": s.architecture_details,
@@ -120,7 +119,7 @@ def _summaries_to_json(summaries: list[VideoSummary]) -> str:
 
 
 def generate_script(
-    summaries: list[VideoSummary],
+    summaries: list[ArticleSummary],
     technology: str,
     category: str,
     next_topic: str = "another exciting technology",

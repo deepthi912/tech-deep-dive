@@ -758,6 +758,115 @@ header {
     background: rgba(239, 68, 68, 0.1);
 }
 
+/* Summary button on episodes */
+.summary-btn {
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--accent);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+}
+
+.summary-btn:hover {
+    background: rgba(59, 130, 246, 0.2);
+}
+
+/* Summary cards in modal */
+.summary-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.summary-card {
+    background: var(--bg-primary);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    border: 1px solid var(--border);
+}
+
+.summary-header {
+    margin-bottom: 0.75rem;
+}
+
+.summary-header h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 0.3rem;
+    line-height: 1.4;
+}
+
+.summary-link {
+    font-size: 0.75rem;
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.summary-link:hover {
+    text-decoration: underline;
+}
+
+.summary-text {
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+    white-space: pre-line;
+}
+
+.summary-points, .summary-arch, .summary-uses {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+}
+
+.summary-points h4, .summary-arch h4, .summary-uses h4 {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 0.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.summary-points ul, .summary-uses ul {
+    list-style: none;
+    padding: 0;
+}
+
+.summary-points li, .summary-uses li {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    padding: 0.25rem 0 0.25rem 1rem;
+    position: relative;
+}
+
+.summary-points li::before, .summary-uses li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.6rem;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+
+.summary-arch p {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    white-space: pre-line;
+}
+
 /* Animations */
 @keyframes spin {
     to { transform: rotate(360deg); }

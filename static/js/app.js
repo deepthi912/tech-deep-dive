@@ -18,11 +18,6 @@ const equalizer = document.getElementById("equalizer");
 const episodeList = document.getElementById("episodeList");
 const statusBanner = document.getElementById("statusBanner");
 const statusText = document.getElementById("statusText");
-const scheduleBtn = document.getElementById("scheduleBtn");
-const scheduleModal = document.getElementById("scheduleModal");
-const closeSchedule = document.getElementById("closeSchedule");
-const scheduleList = document.getElementById("scheduleList");
-
 const urlInput = document.getElementById("urlInput");
 const episodeTitleInput = document.getElementById("episodeTitle");
 const addUrlsBtn = document.getElementById("addUrlsBtn");
@@ -30,23 +25,14 @@ const queueSection = document.getElementById("queueSection");
 const queueCount = document.getElementById("queueCount");
 const queueList = document.getElementById("queueList");
 const generateFromQueue = document.getElementById("generateFromQueue");
+const summaryModal = document.getElementById("summaryModal");
+const closeSummary = document.getElementById("closeSummary");
+const summaryContent = document.getElementById("summaryContent");
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2];
 let speedIndex = 1;
 let currentEpisode = null;
 let pollInterval = null;
-
-const CATEGORY_GRADIENTS = {
-  Databases: "linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)",
-  "Big Data": "linear-gradient(135deg, #1a4731 0%, #0f172a 100%)",
-  "Stream Processing": "linear-gradient(135deg, #3b1a4f 0%, #0f172a 100%)",
-  Messaging: "linear-gradient(135deg, #4a1a1a 0%, #0f172a 100%)",
-  Search: "linear-gradient(135deg, #1a3a4f 0%, #0f172a 100%)",
-  Analytics: "linear-gradient(135deg, #3a3a1a 0%, #0f172a 100%)",
-  Custom: "linear-gradient(135deg, #1a4f3a 0%, #0f172a 100%)",
-  Technology: "linear-gradient(135deg, #1a4f3a 0%, #0f172a 100%)",
-  default: "linear-gradient(135deg, #1e3a5f 0%, #0f172a 50%, #1a1a2e 100%)",
-};
 
 function formatTime(s) {
   if (!s || isNaN(s)) return "0:00";
@@ -62,20 +48,18 @@ function playEpisode(ep) {
   audio.src = `/audio/${ep.filename}`;
   audio.play();
   nowPlaying.classList.remove("hidden");
-  playerTitle.textContent = `Day ${ep.day_number}: ${ep.technology}`;
-  playerCategory.textContent = ep.category;
-  artDay.textContent = `Day ${ep.day_number}`;
+  playerTitle.textContent = `${ep.technology}`;
+  playerCategory.textContent = `Episode ${ep.day_number}`;
+  artDay.textContent = `Episode ${ep.day_number}`;
   artTech.textContent = ep.technology;
-  const artBg = document.getElementById("artBg");
-  artBg.style.background = CATEGORY_GRADIENTS[ep.category] || CATEGORY_GRADIENTS.default;
+  document.getElementById("artBg").style.background =
+    "linear-gradient(135deg, #1a4f3a 0%, #0f172a 100%)";
   document.querySelectorAll(".episode-item").forEach((el) => {
     el.classList.toggle("active", el.dataset.filename === ep.filename);
   });
   if ("mediaSession" in navigator) {
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: `Day ${ep.day_number}: ${ep.technology}`,
-      artist: "Tech Deep Dive",
-      album: ep.category,
+      title: ep.technology, artist: "Tech Deep Dive", album: `Episode ${ep.day_number}`,
     });
     navigator.mediaSession.setActionHandler("play", () => audio.play());
     navigator.mediaSession.setActionHandler("pause", () => audio.pause());
@@ -84,17 +68,42 @@ function playEpisode(ep) {
   }
 }
 
-playPauseBtn.addEventListener("click", () => {
-  if (!audio.src) return;
-  if (audio.paused) audio.play(); else audio.pause();
-});
+function showSummaries(ep) {
+  if (!ep.summaries || !ep.summaries.length) {
+    summaryContent.innerHTML = '<p class="empty-state">No summaries available for this episode.</p>';
+  } else {
+    summaryContent.innerHTML = ep.summaries.map((s, i) => `
+      <div class="summary-card">
+        <div class="summary-header">
+          <h3>${s.title}</h3>
+          <a href="${s.url}" target="_blank" class="summary-link">${s.domain}</a>
+        </div>
+        <p class="summary-text">${s.summary}</p>
+        ${s.key_points && s.key_points.length ? `
+          <div class="summary-points">
+            <h4>Key Takeaways</h4>
+            <ul>${s.key_points.map(p => `<li>${p}</li>`).join("")}</ul>
+          </div>` : ""}
+        ${s.architecture_details ? `
+          <div class="summary-arch">
+            <h4>Architecture</h4>
+            <p>${s.architecture_details}</p>
+          </div>` : ""}
+        ${s.use_cases && s.use_cases.length ? `
+          <div class="summary-uses">
+            <h4>Use Cases</h4>
+            <ul>${s.use_cases.map(u => `<li>${u}</li>`).join("")}</ul>
+          </div>` : ""}
+      </div>`).join("");
+  }
+  summaryModal.classList.remove("hidden");
+}
+
+// Player controls
+playPauseBtn.addEventListener("click", () => { if (!audio.src) return; if (audio.paused) audio.play(); else audio.pause(); });
 audio.addEventListener("play", () => { playIcon.classList.add("hidden"); pauseIcon.classList.remove("hidden"); equalizer.classList.add("playing"); });
 audio.addEventListener("pause", () => { playIcon.classList.remove("hidden"); pauseIcon.classList.add("hidden"); equalizer.classList.remove("playing"); });
-audio.addEventListener("timeupdate", () => {
-  if (!audio.duration) return;
-  seekBar.value = (audio.currentTime / audio.duration) * 100;
-  currentTimeEl.textContent = formatTime(audio.currentTime);
-});
+audio.addEventListener("timeupdate", () => { if (!audio.duration) return; seekBar.value = (audio.currentTime / audio.duration) * 100; currentTimeEl.textContent = formatTime(audio.currentTime); });
 audio.addEventListener("loadedmetadata", () => { durationEl.textContent = formatTime(audio.duration); });
 seekBar.addEventListener("input", () => { if (audio.duration) audio.currentTime = (seekBar.value / 100) * audio.duration; });
 rewindBtn.addEventListener("click", () => { audio.currentTime = Math.max(0, audio.currentTime - 15); });
@@ -105,8 +114,7 @@ speedBtn.addEventListener("click", () => {
   speedLabel.textContent = SPEEDS[speedIndex] === 1 ? "1x" : `${SPEEDS[speedIndex]}x`;
 });
 
-// --- URL Queue ---
-
+// URL Queue
 addUrlsBtn.addEventListener("click", async () => {
   const text = urlInput.value.trim();
   if (!text) return;
@@ -115,35 +123,26 @@ addUrlsBtn.addEventListener("click", async () => {
   addUrlsBtn.disabled = true;
   try {
     const resp = await fetch("/api/queue/add", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ urls }),
     });
     const data = await resp.json();
     urlInput.value = "";
     renderQueue(data.videos);
-  } catch (err) {
-    console.error("Add failed", err);
-  } finally {
-    addUrlsBtn.disabled = false;
-  }
+  } catch (err) { console.error(err); } finally { addUrlsBtn.disabled = false; }
 });
 
 function renderQueue(videos) {
-  if (!videos || !videos.length) {
-    queueSection.classList.add("hidden");
-    return;
-  }
+  if (!videos || !videos.length) { queueSection.classList.add("hidden"); return; }
   queueSection.classList.remove("hidden");
   const pending = videos.filter(v => v.status === "pending");
-  queueCount.textContent = `${pending.length} video${pending.length !== 1 ? "s" : ""} queued`;
+  queueCount.textContent = `${pending.length} source${pending.length !== 1 ? "s" : ""} queued`;
   generateFromQueue.disabled = pending.length === 0;
-
   queueList.innerHTML = videos.map(v => `
     <div class="queue-item">
       <span class="queue-item-title">${v.title || v.url}</span>
       <span class="queue-item-status ${v.status}">${v.status}</span>
-      ${v.status === "pending" ? `<button class="queue-remove" onclick="removeFromQueue('${v.video_id}')" title="Remove">
+      ${v.status === "pending" ? `<button class="queue-remove" onclick="removeFromQueue('${encodeURIComponent(v.url)}')" title="Remove">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
         </svg>
@@ -151,9 +150,9 @@ function renderQueue(videos) {
     </div>`).join("");
 }
 
-async function removeFromQueue(videoId) {
+async function removeFromQueue(encodedUrl) {
   try {
-    const resp = await fetch(`/api/queue/${videoId}`, { method: "DELETE" });
+    const resp = await fetch(`/api/queue/${encodedUrl}`, { method: "DELETE" });
     const data = await resp.json();
     renderQueue(data.videos);
   } catch (err) { console.error(err); }
@@ -164,8 +163,7 @@ generateFromQueue.addEventListener("click", async () => {
   const title = episodeTitleInput.value.trim() || "Tech Deep Dive Episode";
   try {
     await fetch("/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title }),
     });
     statusBanner.classList.remove("hidden", "error");
@@ -174,84 +172,70 @@ generateFromQueue.addEventListener("click", async () => {
   } catch (err) { console.error(err); }
 });
 
-// --- Episodes ---
-
+// Episodes
 async function loadEpisodes() {
   try {
     const resp = await fetch("/api/episodes");
     const data = await resp.json();
-
     if (data.generating) {
       statusBanner.classList.remove("hidden", "error");
       statusText.textContent = "Generating podcast... This takes a few minutes.";
       if (!pollInterval) pollInterval = setInterval(loadEpisodes, 10000);
     } else if (data.generation_error) {
-      statusBanner.classList.remove("hidden");
-      statusBanner.classList.add("error");
+      statusBanner.classList.remove("hidden"); statusBanner.classList.add("error");
       statusText.textContent = `Error: ${data.generation_error}`;
       if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
       generateFromQueue.disabled = false;
     } else {
       statusBanner.classList.add("hidden");
       if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
-      generateFromQueue.disabled = false;
-      loadQueue();
+      generateFromQueue.disabled = false; loadQueue();
     }
-
     const episodes = data.episodes || [];
     if (!episodes.length) {
-      episodeList.innerHTML = `<div class="empty-state"><p>No episodes yet. Add YouTube URLs above and click "Generate Podcast".</p></div>`;
+      episodeList.innerHTML = '<div class="empty-state"><p>No episodes yet. Add blog/doc URLs above and click "Generate Podcast".</p></div>';
       return;
     }
     episodeList.innerHTML = episodes.map((ep) => {
       const isActive = currentEpisode && currentEpisode.filename === ep.filename;
       return `
-      <div class="episode-item ${isActive ? "active" : ""}" data-filename="${ep.filename}"
-           onclick='playEpisode(${JSON.stringify(ep).replace(/'/g, "&#39;")})'>
-        <div class="episode-number">${ep.day_number}</div>
-        <div class="episode-info">
+      <div class="episode-item ${isActive ? "active" : ""}" data-filename="${ep.filename}">
+        <div class="episode-number" onclick='playEpisode(${JSON.stringify(ep).replace(/'/g, "&#39;")})'>${ep.day_number}</div>
+        <div class="episode-info" onclick='playEpisode(${JSON.stringify(ep).replace(/'/g, "&#39;")})'>
           <h3>${ep.technology}</h3>
           <div class="episode-meta">
-            <span>${ep.category}</span><span class="dot"></span>
             <span>${ep.date}</span><span class="dot"></span>
-            <span>${ep.videos_used} sources</span>
+            <span>${ep.sources_used || ep.videos_used || 0} sources</span>
           </div>
         </div>
-        <div class="episode-play-icon">
+        <button class="summary-btn" onclick='showSummaries(${JSON.stringify(ep).replace(/'/g, "&#39;")})' title="View Summaries">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+        </button>
+        <div class="episode-play-icon" onclick='playEpisode(${JSON.stringify(ep).replace(/'/g, "&#39;")})'>
           <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
       </div>`;
     }).join("");
   } catch (err) {
-    episodeList.innerHTML = `<div class="empty-state"><p>Could not load episodes.</p></div>`;
+    episodeList.innerHTML = '<div class="empty-state"><p>Could not load episodes.</p></div>';
   }
 }
 
 async function loadQueue() {
   try {
     const resp = await fetch("/api/queue");
-    const data = await resp.json();
-    renderQueue(data.videos);
+    renderQueue((await resp.json()).videos);
   } catch (err) { console.error(err); }
 }
 
-// Schedule modal
-scheduleBtn.addEventListener("click", async () => {
-  scheduleModal.classList.remove("hidden");
-  try {
-    const resp = await fetch("/api/schedule");
-    const data = await resp.json();
-    scheduleList.innerHTML = (data.schedule || []).map((item) => `
-      <div class="schedule-item ${item.is_today ? "today" : ""}">
-        <span class="schedule-day">Day ${item.day}</span>
-        <span class="schedule-name">${item.name}</span>
-        <span class="schedule-category">${item.category}</span>
-        ${item.is_today ? '<span class="today-badge">Today</span>' : ""}
-      </div>`).join("");
-  } catch (err) { scheduleList.innerHTML = '<p class="empty-state">Could not load schedule</p>'; }
-});
-closeSchedule.addEventListener("click", () => { scheduleModal.classList.add("hidden"); });
-scheduleModal.addEventListener("click", (e) => { if (e.target === scheduleModal) scheduleModal.classList.add("hidden"); });
+// Summary modal
+closeSummary.addEventListener("click", () => { summaryModal.classList.add("hidden"); });
+summaryModal.addEventListener("click", (e) => { if (e.target === summaryModal) summaryModal.classList.add("hidden"); });
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
 

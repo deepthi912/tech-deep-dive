@@ -1,17 +1,17 @@
-"""FastAPI web application with URL queue and podcast player."""
+"""FastAPI web application with URL queue, summaries, and podcast player."""
 
 import logging
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import unquote
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from .curriculum import get_schedule
-from .main import generate_from_urls, get_all_episodes, get_episode_for_today
-from .queue import add_urls, get_all_queue, remove_video
+from .main import generate_from_urls, get_all_episodes
+from .queue import add_urls, get_all_queue, remove_url
 from .utils import get_output_dir, get_project_root, load_config
 
 logger = logging.getLogger(__name__)
@@ -56,21 +56,13 @@ async def api_episodes():
     }
 
 
-@app.get("/api/schedule")
-async def api_schedule():
-    return {"schedule": get_schedule(count=20)}
-
-
 @app.get("/api/status")
 async def api_status():
     return {
         "generating": _generating,
         "generation_error": _generation_error,
-        "todays_episode": get_episode_for_today(),
     }
 
-
-# --- URL Queue endpoints ---
 
 @app.get("/api/queue")
 async def api_get_queue():
@@ -87,9 +79,9 @@ async def api_add_to_queue(request: Request):
     return {"added": len(added), "videos": get_all_queue()}
 
 
-@app.delete("/api/queue/{video_id}")
-async def api_remove_from_queue(video_id: str):
-    remove_video(video_id)
+@app.delete("/api/queue/{url:path}")
+async def api_remove_from_queue(url: str):
+    remove_url(unquote(url))
     return {"status": "removed", "videos": get_all_queue()}
 
 
@@ -99,7 +91,9 @@ async def api_generate(request: Request):
     if _generating:
         return {"status": "already_generating"}
 
-    body = await request.json() if request.headers.get("content-type") == "application/json" else {}
+    body = {}
+    if request.headers.get("content-type", "").startswith("application/json"):
+        body = await request.json()
     title = body.get("title", "Tech Deep Dive Episode")
     urls = body.get("urls")
 
@@ -108,10 +102,10 @@ async def api_generate(request: Request):
         _generating = True
         _generation_error = None
         try:
-            generate_from_urls(video_urls=urls, episode_title=title)
+            generate_from_urls(urls=urls, episode_title=title)
         except Exception as e:
             _generation_error = str(e)
-            logger.error(f"Generation failed: {e}")
+            logger.error(f"Generation failed: {e}", exc_info=True)
         finally:
             _generating = False
 
@@ -141,7 +135,7 @@ async def manifest():
         "display": "standalone",
         "background_color": "#0f172a",
         "theme_color": "#3b82f6",
-        "description": "Daily deep-dive podcast on open source technologies",
+        "description": "AI podcast from blogs and docs",
         "icons": [
             {"src": "/static/icons/icon-192.svg", "sizes": "any", "type": "image/svg+xml"},
         ],
