@@ -31,43 +31,24 @@ Here are summaries from blog posts, documentation, and technical articles about 
 
 {summaries_json}
 
-Write a COMPLETE podcast script (~9000 words total) divided into these segments. Write every word that the narrator should speak -- no stage directions, no brackets, no notes. Just the spoken words.
+Write a podcast script (~2500 words total, about 15-18 minutes when spoken). Write every word the narrator should speak -- no stage directions, no brackets, no notes. Just the spoken words.
 
 SEGMENTS:
 
-1. INTRO (target: ~400 words)
+1. INTRO (target: ~200 words)
 - Welcome listeners to Tech Deep Dive
-- Introduce today's technology: {technology}
-- Brief teaser of what they'll learn
-- Mention this falls under the "{category}" category
+- Introduce today's topic: {technology}
+- Quick teaser of what they'll learn
 
-2. WHAT_AND_WHY (target: ~1500 words)
-- What is {technology}? Explain from the ground up.
-- Why was it created? What problem does it solve?
-- Brief history and evolution
-- Where it fits in the technology landscape
+2. DEEP_DIVE (target: ~1800 words)
+- What is {technology} and why it matters
+- Key architecture and design decisions
+- How it works under the hood
+- Real-world use cases and who uses it
+- Strengths and trade-offs vs alternatives
 
-3. ARCHITECTURE (target: ~3000 words)
-- Deep dive into internal architecture
-- Key components and how they interact
-- Data flow and processing model
-- Design decisions and trade-offs
-- Use diagrams-in-words: "Imagine a system where..."
-
-4. USE_CASES (target: ~2200 words)
-- Real-world production use cases
-- Who uses it and why? (mention specific companies if referenced)
-- Practical applications and scenarios
-- When to choose this technology
-
-5. COMPARISONS (target: ~1200 words)
-- How {technology} compares to alternatives
-- Strengths and weaknesses
-- When to use it vs. alternatives
-
-6. OUTRO (target: ~700 words)
-- Recap the key takeaways (summarize top 5 things learned)
-- Preview tomorrow's topic: {next_topic}
+3. OUTRO (target: ~500 words)
+- Recap the top 5 takeaways
 - Sign off
 
 STYLE GUIDELINES:
@@ -82,10 +63,7 @@ Respond with a JSON object:
 {{
   "segments": [
     {{"name": "INTRO", "text": "the full spoken text..."}},
-    {{"name": "WHAT_AND_WHY", "text": "the full spoken text..."}},
-    {{"name": "ARCHITECTURE", "text": "the full spoken text..."}},
-    {{"name": "USE_CASES", "text": "the full spoken text..."}},
-    {{"name": "COMPARISONS", "text": "the full spoken text..."}},
+    {{"name": "DEEP_DIVE", "text": "the full spoken text..."}},
     {{"name": "OUTRO", "text": "the full spoken text..."}}
   ]
 }}
@@ -93,12 +71,9 @@ Respond with a JSON object:
 Return ONLY valid JSON. Write every word to be spoken aloud."""
 
 SEGMENT_TARGETS = {
-    "INTRO": 3,
-    "WHAT_AND_WHY": 10,
-    "ARCHITECTURE": 20,
-    "USE_CASES": 15,
-    "COMPARISONS": 7,
-    "OUTRO": 5,
+    "INTRO": 1,
+    "DEEP_DIVE": 12,
+    "OUTRO": 3,
 }
 
 

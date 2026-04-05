@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-import tempfile
 from pathlib import Path
 
 import edge_tts
@@ -23,16 +22,26 @@ async def _generate_segment_audio(
     rate: str,
     volume: str,
 ) -> Path:
-    """Generate audio for a single podcast segment."""
-    communicate = edge_tts.Communicate(
-        text=segment.text,
-        voice=voice,
-        rate=rate,
-        volume=volume,
+    word_count = len(segment.text.split())
+    logger.info(
+        f"Generating audio: {segment.name} ({word_count} words, "
+        f"~{word_count // 150} min)..."
     )
-    await communicate.save(str(output_path))
-    logger.info(f"Audio generated: {segment.name} -> {output_path.name}")
-    return output_path
+    try:
+        communicate = edge_tts.Communicate(
+            text=segment.text,
+            voice=voice,
+            rate=rate,
+            volume=volume,
+        )
+        await communicate.save(str(output_path))
+
+        size_kb = output_path.stat().st_size / 1024
+        logger.info(f"Audio done: {segment.name} -> {output_path.name} ({size_kb:.0f} KB)")
+        return output_path
+    except Exception as e:
+        logger.error(f"Audio generation FAILED for {segment.name}: {e}")
+        raise
 
 
 async def generate_all_audio(
@@ -40,7 +49,6 @@ async def generate_all_audio(
     work_dir: Path,
     config: dict,
 ) -> list[Path]:
-    """Generate audio files for all podcast segments."""
     tts_config = config.get("tts", {})
     voice = tts_config.get("voice", DEFAULT_VOICE)
     rate = tts_config.get("rate", DEFAULT_RATE)
@@ -49,13 +57,16 @@ async def generate_all_audio(
     work_dir.mkdir(parents=True, exist_ok=True)
     audio_paths = []
 
+    total_words = sum(len(s.text.split()) for s in segments)
+    logger.info(f"Starting TTS for {len(segments)} segments ({total_words} words total)")
+
     for i, segment in enumerate(segments):
         filename = f"{i:02d}_{segment.name.lower()}.mp3"
         output_path = work_dir / filename
         await _generate_segment_audio(segment, output_path, voice, rate, volume)
         audio_paths.append(output_path)
 
-    logger.info(f"Generated {len(audio_paths)} audio segments in {work_dir}")
+    logger.info(f"All {len(audio_paths)} audio segments generated")
     return audio_paths
 
 
@@ -64,5 +75,4 @@ def generate_audio(
     work_dir: Path,
     config: dict,
 ) -> list[Path]:
-    """Synchronous wrapper for audio generation."""
     return asyncio.run(generate_all_audio(segments, work_dir, config))
