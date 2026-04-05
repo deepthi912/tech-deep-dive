@@ -45,7 +45,6 @@ def generate_from_urls(
     from .audio_generator import generate_audio
     from .podcast_assembler import assemble_podcast
     from .queue import get_pending_urls, mark_urls_used, update_title
-    from .scraper import scrape_all
     from .script_writer import generate_script
     from .summarizer import summarize_pages
 
@@ -63,9 +62,19 @@ def generate_from_urls(
 
     # 1. Scrape web pages (free, no API needed)
     logger.info("Step 1/4: Scraping web pages...")
-    pages = scrape_all(urls)
+    from .scraper import scrape_url
+    all_results = [scrape_url(u, i) for i, u in enumerate(urls)]
+    pages = [p for p in all_results if p.success]
+    failed = [p for p in all_results if not p.success]
+
     if not pages:
-        raise RuntimeError("Could not extract content from any URLs")
+        error_details = "; ".join(f"{p.url} -> {p.error}" for p in failed)
+        raise RuntimeError(
+            f"Could not extract content from any of the {len(urls)} URLs. "
+            f"Errors: {error_details}"
+        )
+    if failed:
+        logger.warning(f"{len(failed)} URLs failed, continuing with {len(pages)}")
     logger.info(f"Scraped {len(pages)}/{len(urls)} pages")
 
     for page in pages:
