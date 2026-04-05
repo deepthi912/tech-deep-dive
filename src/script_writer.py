@@ -107,7 +107,7 @@ def generate_script(
     )
 
     logger.info(f"Generating podcast script for {technology}...")
-    text = generate_content(prompt, max_output_tokens=30000, temperature=0.7)
+    text = generate_content(prompt, max_output_tokens=8000, temperature=0.7)
     if text.startswith("```"):
         text = text.split("\n", 1)[1]
         text = text.rsplit("```", 1)[0]
