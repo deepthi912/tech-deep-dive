@@ -46,7 +46,7 @@
         <!-- Status Banner -->
         <div id="statusBanner" class="status-banner hidden">
             <div class="spinner"></div>
-            <span id="statusText">Generating today's episode...</span>
+            <span id="statusText">Generating episode...</span>
         </div>
 
         <!-- Now Playing -->
@@ -91,16 +91,38 @@
             </div>
         </div>
 
+        <!-- Add Videos Section -->
+        <div class="add-section">
+            <div class="section-header">
+                <h2>Add YouTube Videos</h2>
+            </div>
+            <div class="add-form">
+                <textarea id="urlInput" class="url-input" rows="3" placeholder="Paste YouTube URLs here (one per line)&#10;e.g. https://www.youtube.com/watch?v=..."></textarea>
+                <div class="add-form-row">
+                    <input type="text" id="episodeTitle" class="title-input" placeholder="Episode title (e.g. Apache Kafka Deep Dive)">
+                    <button id="addUrlsBtn" class="add-btn">Add</button>
+                </div>
+            </div>
+
+            <!-- Queue -->
+            <div id="queueSection" class="queue-section hidden">
+                <div class="queue-header">
+                    <span id="queueCount">0 videos queued</span>
+                    <button id="generateFromQueue" class="generate-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <polygon points="5 3 19 12 5 21 5 3"/>
+                        </svg>
+                        Generate Podcast
+                    </button>
+                </div>
+                <div id="queueList" class="queue-list"></div>
+            </div>
+        </div>
+
         <!-- Episode List -->
         <div class="episodes-section">
             <div class="section-header">
                 <h2>Episodes</h2>
-                <button id="generateBtn" class="generate-btn">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                    </svg>
-                    Generate New
-                </button>
             </div>
             <div id="episodeList" class="episode-list">
                 <div class="loading-state">

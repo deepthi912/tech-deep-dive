@@ -1,43 +1,23 @@
-"""FastAPI web application: serves a mobile-friendly podcast player with PWA support."""
+"""FastAPI web application with URL queue and podcast player."""
 
 import logging
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from .curriculum import get_schedule
-from .main import generate_episode, get_all_episodes, get_episode_for_today
+from .main import generate_from_urls, get_all_episodes, get_episode_for_today
+from .queue import add_urls, get_all_queue, remove_video
 from .utils import get_output_dir, get_project_root, load_config
 
 logger = logging.getLogger(__name__)
 
 _generating = False
 _generation_error: str | None = None
-
-
-def _auto_generate():
-    """Background thread: generate today's episode if it doesn't exist."""
-    global _generating, _generation_error
-    _generating = True
-    _generation_error = None
-    try:
-        existing = get_episode_for_today()
-        if existing:
-            logger.info(f"Today's episode already exists: {existing['filename']}")
-            return
-
-        logger.info("Auto-generating today's episode...")
-        generate_episode()
-        logger.info("Auto-generation complete!")
-    except Exception as e:
-        _generation_error = str(e)
-        logger.error(f"Auto-generation failed: {e}")
-    finally:
-        _generating = False
 
 
 @asynccontextmanager
@@ -50,9 +30,6 @@ async def lifespan(app: FastAPI):
         format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
         datefmt="%H:%M:%S",
     )
-
-    thread = threading.Thread(target=_auto_generate, daemon=True)
-    thread.start()
     yield
 
 
@@ -93,18 +70,45 @@ async def api_status():
     }
 
 
+# --- URL Queue endpoints ---
+
+@app.get("/api/queue")
+async def api_get_queue():
+    return {"videos": get_all_queue()}
+
+
+@app.post("/api/queue/add")
+async def api_add_to_queue(request: Request):
+    body = await request.json()
+    urls = body.get("urls", [])
+    if isinstance(urls, str):
+        urls = [u.strip() for u in urls.split("\n") if u.strip()]
+    added = add_urls(urls)
+    return {"added": len(added), "videos": get_all_queue()}
+
+
+@app.delete("/api/queue/{video_id}")
+async def api_remove_from_queue(video_id: str):
+    remove_video(video_id)
+    return {"status": "removed", "videos": get_all_queue()}
+
+
 @app.post("/api/generate")
-async def api_generate(topic: str | None = None, day: int | None = None):
+async def api_generate(request: Request):
     global _generating, _generation_error
     if _generating:
         return {"status": "already_generating"}
+
+    body = await request.json() if request.headers.get("content-type") == "application/json" else {}
+    title = body.get("title", "Tech Deep Dive Episode")
+    urls = body.get("urls")
 
     def _run():
         global _generating, _generation_error
         _generating = True
         _generation_error = None
         try:
-            generate_episode(override_topic=topic, override_day=day)
+            generate_from_urls(video_urls=urls, episode_title=title)
         except Exception as e:
             _generation_error = str(e)
             logger.error(f"Generation failed: {e}")

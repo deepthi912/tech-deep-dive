@@ -22,7 +22,14 @@ const scheduleBtn = document.getElementById("scheduleBtn");
 const scheduleModal = document.getElementById("scheduleModal");
 const closeSchedule = document.getElementById("closeSchedule");
 const scheduleList = document.getElementById("scheduleList");
-const generateBtn = document.getElementById("generateBtn");
+
+const urlInput = document.getElementById("urlInput");
+const episodeTitleInput = document.getElementById("episodeTitle");
+const addUrlsBtn = document.getElementById("addUrlsBtn");
+const queueSection = document.getElementById("queueSection");
+const queueCount = document.getElementById("queueCount");
+const queueList = document.getElementById("queueList");
+const generateFromQueue = document.getElementById("generateFromQueue");
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2];
 let speedIndex = 1;
@@ -36,10 +43,8 @@ const CATEGORY_GRADIENTS = {
   Messaging: "linear-gradient(135deg, #4a1a1a 0%, #0f172a 100%)",
   Search: "linear-gradient(135deg, #1a3a4f 0%, #0f172a 100%)",
   Analytics: "linear-gradient(135deg, #3a3a1a 0%, #0f172a 100%)",
-  "Query Engine": "linear-gradient(135deg, #1a4f4f 0%, #0f172a 100%)",
-  "In-Memory Format": "linear-gradient(135deg, #2a1a4f 0%, #0f172a 100%)",
-  "Table Format": "linear-gradient(135deg, #1a2a4f 0%, #0f172a 100%)",
-  Orchestration: "linear-gradient(135deg, #4f3a1a 0%, #0f172a 100%)",
+  Custom: "linear-gradient(135deg, #1a4f3a 0%, #0f172a 100%)",
+  Technology: "linear-gradient(135deg, #1a4f3a 0%, #0f172a 100%)",
   default: "linear-gradient(135deg, #1e3a5f 0%, #0f172a 50%, #1a1a2e 100%)",
 };
 
@@ -56,20 +61,16 @@ function playEpisode(ep) {
   currentEpisode = ep;
   audio.src = `/audio/${ep.filename}`;
   audio.play();
-
   nowPlaying.classList.remove("hidden");
   playerTitle.textContent = `Day ${ep.day_number}: ${ep.technology}`;
   playerCategory.textContent = ep.category;
   artDay.textContent = `Day ${ep.day_number}`;
   artTech.textContent = ep.technology;
-
   const artBg = document.getElementById("artBg");
   artBg.style.background = CATEGORY_GRADIENTS[ep.category] || CATEGORY_GRADIENTS.default;
-
   document.querySelectorAll(".episode-item").forEach((el) => {
     el.classList.toggle("active", el.dataset.filename === ep.filename);
   });
-
   if ("mediaSession" in navigator) {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: `Day ${ep.day_number}: ${ep.technology}`,
@@ -83,57 +84,98 @@ function playEpisode(ep) {
   }
 }
 
-// Player controls
 playPauseBtn.addEventListener("click", () => {
   if (!audio.src) return;
-  if (audio.paused) audio.play();
-  else audio.pause();
+  if (audio.paused) audio.play(); else audio.pause();
 });
-
-audio.addEventListener("play", () => {
-  playIcon.classList.add("hidden");
-  pauseIcon.classList.remove("hidden");
-  equalizer.classList.add("playing");
-});
-
-audio.addEventListener("pause", () => {
-  playIcon.classList.remove("hidden");
-  pauseIcon.classList.add("hidden");
-  equalizer.classList.remove("playing");
-});
-
+audio.addEventListener("play", () => { playIcon.classList.add("hidden"); pauseIcon.classList.remove("hidden"); equalizer.classList.add("playing"); });
+audio.addEventListener("pause", () => { playIcon.classList.remove("hidden"); pauseIcon.classList.add("hidden"); equalizer.classList.remove("playing"); });
 audio.addEventListener("timeupdate", () => {
   if (!audio.duration) return;
-  const pct = (audio.currentTime / audio.duration) * 100;
-  seekBar.value = pct;
+  seekBar.value = (audio.currentTime / audio.duration) * 100;
   currentTimeEl.textContent = formatTime(audio.currentTime);
 });
-
-audio.addEventListener("loadedmetadata", () => {
-  durationEl.textContent = formatTime(audio.duration);
-});
-
-seekBar.addEventListener("input", () => {
-  if (!audio.duration) return;
-  audio.currentTime = (seekBar.value / 100) * audio.duration;
-});
-
-rewindBtn.addEventListener("click", () => {
-  audio.currentTime = Math.max(0, audio.currentTime - 15);
-});
-
-forwardBtn.addEventListener("click", () => {
-  audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 30);
-});
-
+audio.addEventListener("loadedmetadata", () => { durationEl.textContent = formatTime(audio.duration); });
+seekBar.addEventListener("input", () => { if (audio.duration) audio.currentTime = (seekBar.value / 100) * audio.duration; });
+rewindBtn.addEventListener("click", () => { audio.currentTime = Math.max(0, audio.currentTime - 15); });
+forwardBtn.addEventListener("click", () => { audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 30); });
 speedBtn.addEventListener("click", () => {
   speedIndex = (speedIndex + 1) % SPEEDS.length;
-  const speed = SPEEDS[speedIndex];
-  audio.playbackRate = speed;
-  speedLabel.textContent = speed === 1 ? "1x" : `${speed}x`;
+  audio.playbackRate = SPEEDS[speedIndex];
+  speedLabel.textContent = SPEEDS[speedIndex] === 1 ? "1x" : `${SPEEDS[speedIndex]}x`;
 });
 
-// Load episodes
+// --- URL Queue ---
+
+addUrlsBtn.addEventListener("click", async () => {
+  const text = urlInput.value.trim();
+  if (!text) return;
+  const urls = text.split("\n").map(u => u.trim()).filter(u => u);
+  if (!urls.length) return;
+  addUrlsBtn.disabled = true;
+  try {
+    const resp = await fetch("/api/queue/add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls }),
+    });
+    const data = await resp.json();
+    urlInput.value = "";
+    renderQueue(data.videos);
+  } catch (err) {
+    console.error("Add failed", err);
+  } finally {
+    addUrlsBtn.disabled = false;
+  }
+});
+
+function renderQueue(videos) {
+  if (!videos || !videos.length) {
+    queueSection.classList.add("hidden");
+    return;
+  }
+  queueSection.classList.remove("hidden");
+  const pending = videos.filter(v => v.status === "pending");
+  queueCount.textContent = `${pending.length} video${pending.length !== 1 ? "s" : ""} queued`;
+  generateFromQueue.disabled = pending.length === 0;
+
+  queueList.innerHTML = videos.map(v => `
+    <div class="queue-item">
+      <span class="queue-item-title">${v.title || v.url}</span>
+      <span class="queue-item-status ${v.status}">${v.status}</span>
+      ${v.status === "pending" ? `<button class="queue-remove" onclick="removeFromQueue('${v.video_id}')" title="Remove">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>` : ""}
+    </div>`).join("");
+}
+
+async function removeFromQueue(videoId) {
+  try {
+    const resp = await fetch(`/api/queue/${videoId}`, { method: "DELETE" });
+    const data = await resp.json();
+    renderQueue(data.videos);
+  } catch (err) { console.error(err); }
+}
+
+generateFromQueue.addEventListener("click", async () => {
+  generateFromQueue.disabled = true;
+  const title = episodeTitleInput.value.trim() || "Tech Deep Dive Episode";
+  try {
+    await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    });
+    statusBanner.classList.remove("hidden", "error");
+    statusText.textContent = "Generating podcast... This takes a few minutes.";
+    if (!pollInterval) pollInterval = setInterval(loadEpisodes, 10000);
+  } catch (err) { console.error(err); }
+});
+
+// --- Episodes ---
+
 async function loadEpisodes() {
   try {
     const resp = await fetch("/api/episodes");
@@ -141,78 +183,57 @@ async function loadEpisodes() {
 
     if (data.generating) {
       statusBanner.classList.remove("hidden", "error");
-      statusText.textContent = "Generating today's episode... This may take a few minutes.";
-      if (!pollInterval) {
-        pollInterval = setInterval(loadEpisodes, 10000);
-      }
+      statusText.textContent = "Generating podcast... This takes a few minutes.";
+      if (!pollInterval) pollInterval = setInterval(loadEpisodes, 10000);
     } else if (data.generation_error) {
       statusBanner.classList.remove("hidden");
       statusBanner.classList.add("error");
-      statusText.textContent = `Generation error: ${data.generation_error}`;
+      statusText.textContent = `Error: ${data.generation_error}`;
       if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+      generateFromQueue.disabled = false;
     } else {
       statusBanner.classList.add("hidden");
       if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+      generateFromQueue.disabled = false;
+      loadQueue();
     }
 
     const episodes = data.episodes || [];
-    if (episodes.length === 0) {
-      episodeList.innerHTML = `
-        <div class="empty-state">
-          <p>No episodes yet.</p>
-          <p>Click "Generate New" or wait for auto-generation to complete.</p>
-        </div>`;
+    if (!episodes.length) {
+      episodeList.innerHTML = `<div class="empty-state"><p>No episodes yet. Add YouTube URLs above and click "Generate Podcast".</p></div>`;
       return;
     }
-
-    episodeList.innerHTML = episodes
-      .map((ep) => {
-        const isActive = currentEpisode && currentEpisode.filename === ep.filename;
-        return `
-        <div class="episode-item ${isActive ? "active" : ""}"
-             data-filename="${ep.filename}"
-             onclick='playEpisode(${JSON.stringify(ep).replace(/'/g, "&#39;")})'>
-          <div class="episode-number">${ep.day_number}</div>
-          <div class="episode-info">
-            <h3>${ep.technology}</h3>
-            <div class="episode-meta">
-              <span>${ep.category}</span>
-              <span class="dot"></span>
-              <span>${ep.date}</span>
-              <span class="dot"></span>
-              <span>${ep.videos_used} sources</span>
-            </div>
+    episodeList.innerHTML = episodes.map((ep) => {
+      const isActive = currentEpisode && currentEpisode.filename === ep.filename;
+      return `
+      <div class="episode-item ${isActive ? "active" : ""}" data-filename="${ep.filename}"
+           onclick='playEpisode(${JSON.stringify(ep).replace(/'/g, "&#39;")})'>
+        <div class="episode-number">${ep.day_number}</div>
+        <div class="episode-info">
+          <h3>${ep.technology}</h3>
+          <div class="episode-meta">
+            <span>${ep.category}</span><span class="dot"></span>
+            <span>${ep.date}</span><span class="dot"></span>
+            <span>${ep.videos_used} sources</span>
           </div>
-          <div class="episode-play-icon">
-            <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-          </div>
-        </div>`;
-      })
-      .join("");
-  } catch (err) {
-    episodeList.innerHTML = `
-      <div class="empty-state">
-        <p>Could not load episodes. Is the server running?</p>
+        </div>
+        <div class="episode-play-icon">
+          <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </div>
       </div>`;
+    }).join("");
+  } catch (err) {
+    episodeList.innerHTML = `<div class="empty-state"><p>Could not load episodes.</p></div>`;
   }
 }
 
-// Generate new episode
-generateBtn.addEventListener("click", async () => {
-  generateBtn.disabled = true;
+async function loadQueue() {
   try {
-    await fetch("/api/generate", { method: "POST" });
-    statusBanner.classList.remove("hidden", "error");
-    statusText.textContent = "Generating new episode... This may take a few minutes.";
-    if (!pollInterval) {
-      pollInterval = setInterval(loadEpisodes, 10000);
-    }
-  } catch (err) {
-    console.error("Generate request failed", err);
-  } finally {
-    setTimeout(() => { generateBtn.disabled = false; }, 5000);
-  }
-});
+    const resp = await fetch("/api/queue");
+    const data = await resp.json();
+    renderQueue(data.videos);
+  } catch (err) { console.error(err); }
+}
 
 // Schedule modal
 scheduleBtn.addEventListener("click", async () => {
@@ -220,32 +241,19 @@ scheduleBtn.addEventListener("click", async () => {
   try {
     const resp = await fetch("/api/schedule");
     const data = await resp.json();
-    scheduleList.innerHTML = (data.schedule || [])
-      .map((item) => `
-        <div class="schedule-item ${item.is_today ? "today" : ""}">
-          <span class="schedule-day">Day ${item.day}</span>
-          <span class="schedule-name">${item.name}</span>
-          <span class="schedule-category">${item.category}</span>
-          ${item.is_today ? '<span class="today-badge">Today</span>' : ""}
-        </div>`)
-      .join("");
-  } catch (err) {
-    scheduleList.innerHTML = '<p class="empty-state">Could not load schedule</p>';
-  }
+    scheduleList.innerHTML = (data.schedule || []).map((item) => `
+      <div class="schedule-item ${item.is_today ? "today" : ""}">
+        <span class="schedule-day">Day ${item.day}</span>
+        <span class="schedule-name">${item.name}</span>
+        <span class="schedule-category">${item.category}</span>
+        ${item.is_today ? '<span class="today-badge">Today</span>' : ""}
+      </div>`).join("");
+  } catch (err) { scheduleList.innerHTML = '<p class="empty-state">Could not load schedule</p>'; }
 });
+closeSchedule.addEventListener("click", () => { scheduleModal.classList.add("hidden"); });
+scheduleModal.addEventListener("click", (e) => { if (e.target === scheduleModal) scheduleModal.classList.add("hidden"); });
 
-closeSchedule.addEventListener("click", () => {
-  scheduleModal.classList.add("hidden");
-});
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
 
-scheduleModal.addEventListener("click", (e) => {
-  if (e.target === scheduleModal) scheduleModal.classList.add("hidden");
-});
-
-// Register service worker for PWA
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js").catch(() => {});
-}
-
-// Initial load
 loadEpisodes();
+loadQueue();

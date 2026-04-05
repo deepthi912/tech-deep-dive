@@ -1,4 +1,8 @@
-"""AI summarization of video transcripts using Google Gemini."""
+"""AI summarization -- batches ALL transcripts into a single Gemini call.
+
+Gemini free tier allows only 20 requests/day for gemini-2.5-flash.
+We use exactly 1 call here + 1 in script_writer = 2 total per episode.
+"""
 
 import json
 import logging
@@ -18,7 +22,7 @@ class VideoSummary:
     title: str
     channel: str
     url: str
-    category: str  # basics, architecture, use_case, advanced, comparison
+    category: str
     summary: str
     key_points: list[str]
     architecture_details: str
@@ -33,77 +37,102 @@ def _get_model():
     return genai.GenerativeModel("gemini-2.5-flash")
 
 
-SUMMARIZE_PROMPT = """You are an expert technical content summarizer. Analyze this transcript from a video about {technology} and extract structured information.
+BATCH_PROMPT = """You are an expert technical content summarizer. Below are transcripts from multiple videos about {technology}. Analyze ALL of them and return a single JSON array of summaries.
 
-VIDEO TITLE: {title}
-CHANNEL: {channel}
+{video_blocks}
 
-TRANSCRIPT:
-{transcript}
-
-Respond in valid JSON with these fields:
+Return a JSON array with one object per video. Each object must have:
 {{
+  "video_index": 0,
   "category": "one of: basics, architecture, use_case, advanced, comparison",
-  "summary": "A comprehensive 3-5 paragraph summary covering all key information",
-  "key_points": ["list of 5-8 key takeaways"],
-  "architecture_details": "Any architecture/internals information discussed (empty string if none)",
-  "use_cases": ["list of real-world use cases mentioned (empty list if none)"]
+  "summary": "comprehensive 3-5 paragraph summary",
+  "key_points": ["5-8 key takeaways"],
+  "architecture_details": "architecture/internals info (empty string if none)",
+  "use_cases": ["real-world use cases mentioned (empty list if none)"]
 }}
 
-Be thorough and technical. Capture architectural details, design decisions, and practical insights. Return ONLY valid JSON."""
+Be thorough and technical. Return ONLY a valid JSON array."""
 
 
-def summarize_video(video: TranscribedVideo, technology: str) -> VideoSummary | None:
-    """Summarize a single transcribed video using Gemini."""
+def summarize_all(
+    transcribed: list[TranscribedVideo], technology: str
+) -> list[VideoSummary]:
+    """Summarize ALL transcribed videos in a single Gemini API call."""
+    if not transcribed:
+        return []
+
     model = _get_model()
-    transcript = truncate_text(video.transcript, max_chars=28000)
 
-    prompt = SUMMARIZE_PROMPT.format(
+    chars_budget = 90000
+    video_blocks = []
+    chars_used = 0
+
+    for i, tv in enumerate(transcribed):
+        per_video_budget = chars_budget // len(transcribed)
+        transcript = truncate_text(tv.transcript, max_chars=per_video_budget)
+        block = (
+            f"=== VIDEO {i} ===\n"
+            f"TITLE: {tv.video.title}\n"
+            f"CHANNEL: {tv.video.channel}\n"
+            f"TRANSCRIPT:\n{transcript}\n"
+        )
+        chars_used += len(block)
+        if chars_used > chars_budget:
+            logger.info(f"Truncating at {i} videos to fit context window")
+            break
+        video_blocks.append(block)
+
+    prompt = BATCH_PROMPT.format(
         technology=technology,
-        title=video.video.title,
-        channel=video.video.channel,
-        transcript=transcript,
+        video_blocks="\n".join(video_blocks),
+    )
+
+    logger.info(
+        f"Sending batch summary request: {len(video_blocks)} videos, "
+        f"~{len(prompt)} chars (1 Gemini call)"
     )
 
     try:
-        response = model.generate_content(prompt)
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.GenerationConfig(
+                max_output_tokens=16000,
+                temperature=0.3,
+            ),
+        )
         text = response.text.strip()
         if text.startswith("```"):
             text = text.split("\n", 1)[1]
             text = text.rsplit("```", 1)[0]
 
         data = json.loads(text)
-        logger.info(f"Summarized: '{video.video.title}' -> {data.get('category', 'unknown')}")
-        return VideoSummary(
-            title=video.video.title,
-            channel=video.video.channel,
-            url=video.video.url,
-            category=data.get("category", "basics"),
-            summary=data.get("summary", ""),
-            key_points=data.get("key_points", []),
-            architecture_details=data.get("architecture_details", ""),
-            use_cases=data.get("use_cases", []),
-        )
+        if not isinstance(data, list):
+            data = [data]
+
+        summaries = []
+        for item in data:
+            idx = item.get("video_index", len(summaries))
+            if idx < len(transcribed):
+                tv = transcribed[idx]
+            elif summaries:
+                continue
+            else:
+                tv = transcribed[0]
+
+            summaries.append(VideoSummary(
+                title=tv.video.title,
+                channel=tv.video.channel,
+                url=tv.video.url,
+                category=item.get("category", "basics"),
+                summary=item.get("summary", ""),
+                key_points=item.get("key_points", []),
+                architecture_details=item.get("architecture_details", ""),
+                use_cases=item.get("use_cases", []),
+            ))
+
+        logger.info(f"Batch summarized {len(summaries)} videos in 1 API call")
+        return summaries
+
     except Exception as e:
-        logger.error(f"Failed to summarize '{video.video.title}': {e}")
-        return None
-
-
-def summarize_all(
-    transcribed: list[TranscribedVideo], technology: str
-) -> list[VideoSummary]:
-    """Summarize all transcribed videos."""
-    summaries = []
-    for tv in transcribed:
-        summary = summarize_video(tv, technology)
-        if summary:
-            summaries.append(summary)
-
-    by_cat = {}
-    for s in summaries:
-        by_cat.setdefault(s.category, []).append(s)
-    logger.info(
-        f"Summarized {len(summaries)} videos. "
-        f"Categories: {', '.join(f'{k}({len(v)})' for k, v in by_cat.items())}"
-    )
-    return summaries
+        logger.error(f"Batch summarization failed: {e}")
+        raise
