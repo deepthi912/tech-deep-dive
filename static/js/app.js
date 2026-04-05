@@ -169,6 +169,8 @@ function loadEpisodeWithoutPlaying(ep) {
   playerCategory.textContent = `Episode ${ep.day_number}`;
   artDay.textContent = `Episode ${ep.day_number}`;
   artTech.textContent = ep.technology;
+  document.getElementById("artBg").style.background =
+    "linear-gradient(135deg, #1a4f3a 0%, #0f172a 100%)";
 
   const saved = getProgress(ep.filename);
   pendingSeek = (saved && saved.t > 5) ? saved.t : null;
@@ -275,6 +277,13 @@ audio.addEventListener("play", () => {
   playIcon.classList.add("hidden");
   pauseIcon.classList.remove("hidden");
   equalizer.classList.add("playing");
+  if (!saveProgressTimer) {
+    saveProgressTimer = setInterval(() => {
+      if (currentEpisode && audio.duration && !audio.paused) {
+        saveProgress(currentEpisode.filename, audio.currentTime, audio.duration);
+      }
+    }, SAVE_INTERVAL_MS);
+  }
 });
 audio.addEventListener("timeupdate", () => {
   if (!audio.duration) return;
